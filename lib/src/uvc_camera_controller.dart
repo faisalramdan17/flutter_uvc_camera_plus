@@ -8,8 +8,7 @@ import 'package:flutter_uvc_camera/flutter_uvc_camera.dart';
 /// Controller for UVC camera operations
 class UVCCameraController {
   static const String _methodChannelName = "flutter_uvc_camera/channel";
-  static const String _videoStreamChannelName =
-      "flutter_uvc_camera/video_stream";
+  static const String _videoStreamChannelName = "flutter_uvc_camera/video_stream";
 
   UVCCameraState _cameraState = UVCCameraState.closed;
 
@@ -45,6 +44,9 @@ class UVCCameraController {
 
   /// Audio frame callback
   Function(VideoFrameEvent)? onAudioFrameCallback;
+
+  /// NV21 原始帧回调（包含宽高等元数据）
+  Function(Nv21FrameEvent)? onNv21FrameCallback;
 
   /// Recording time update callback
   Function(RecordingTimeEvent)? onRecordingTimeCallback;
@@ -111,14 +113,16 @@ class UVCCameraController {
           if (videoEvent is VideoFrameEvent) {
             if (videoEvent.type == 'H264' && onVideoFrameCallback != null) {
               onVideoFrameCallback!(videoEvent);
-            } else if (videoEvent.type == 'AAC' &&
-                onAudioFrameCallback != null) {
+            } else if (videoEvent.type == 'AAC' && onAudioFrameCallback != null) {
               onAudioFrameCallback!(videoEvent);
+            }
+          } else if (videoEvent is Nv21FrameEvent) {
+            if (onNv21FrameCallback != null) {
+              onNv21FrameCallback!(videoEvent);
             }
           } else if (videoEvent is StateEvent) {
             if (videoEvent.state == 'RECORDING_TIME') {
-              final recordingEvent =
-                  RecordingTimeEvent.fromStateEvent(videoEvent);
+              final recordingEvent = RecordingTimeEvent.fromStateEvent(videoEvent);
               _currentRecordingTimeMs = recordingEvent.elapsedMillis;
               _currentRecordingTimeFormatted = recordingEvent.formattedTime;
 
@@ -153,14 +157,12 @@ class UVCCameraController {
   void _reduceFrameRate() async {
     try {
       // Get current frame rate limit - default to 30 if not yet configured
-      final currentFps =
-          await _methodChannel?.invokeMethod('getVideoFrameRateLimit') ?? 30;
+      final currentFps = await _methodChannel?.invokeMethod('getVideoFrameRateLimit') ?? 30;
 
       // Only reduce if frame rate is above minimum threshold (15 fps)
       if (currentFps > 15) {
         final newFps = (currentFps * 0.8).round(); // Reduce by 20%
-        debugPrint(
-            "Automatically reducing frame rate from $currentFps to $newFps due to buffer issues");
+        debugPrint("Automatically reducing frame rate from $currentFps to $newFps due to buffer issues");
         await setVideoFrameRateLimit(newFps);
       }
     } catch (e) {
@@ -252,8 +254,7 @@ class UVCCameraController {
 
   /// 设置视频帧大小限制
   Future<void> setVideoFrameSizeLimit(int maxBytes) async {
-    await _methodChannel
-        ?.invokeMethod('setVideoFrameSizeLimit', {'size': maxBytes});
+    await _methodChannel?.invokeMethod('setVideoFrameSizeLimit', {'size': maxBytes});
   }
 
   /// Get all available preview sizes
@@ -271,8 +272,7 @@ class UVCCameraController {
 
   /// Get current camera request parameters
   Future<String?> getCurrentCameraRequestParameters() async {
-    return await _methodChannel
-        ?.invokeMethod('getCurrentCameraRequestParameters');
+    return await _methodChannel?.invokeMethod('getCurrentCameraRequestParameters');
   }
 
   /// Update camera resolution

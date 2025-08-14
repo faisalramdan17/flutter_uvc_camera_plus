@@ -491,10 +491,6 @@ class CameraUVC(ctx: Context, device: UsbDevice, private val params: Any?
         mUvcCamera?.setButtonCallback(callback)
     }
 
-
-
-
-
     /**
      * Set saturation
      *

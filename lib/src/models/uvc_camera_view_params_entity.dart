@@ -19,11 +19,16 @@ class UVCCameraViewParamsEntity {
   ///  DEFAULT_BANDWIDTH = 1
   final double? bandwidthFactor;
 
+  /// Whether to forward raw NV21 preview frames to Flutter
+  /// DEFAULT false. Enable to use ML Kit on raw frames.
+  final bool? rawPreviewData;
+
   const UVCCameraViewParamsEntity({
     this.minFps = 10,
     this.maxFps = 60,
     this.bandwidthFactor = 1.0,
     this.frameFormat = 1,
+    this.rawPreviewData = false,
   });
 
   Map<String, dynamic> toMap() {
@@ -31,7 +36,8 @@ class UVCCameraViewParamsEntity {
       "minFps": minFps,
       "maxFps": maxFps,
       "frameFormat": frameFormat,
-      "bandwidthFactor": bandwidthFactor
+      "bandwidthFactor": bandwidthFactor,
+      "rawPreviewData": rawPreviewData,
     };
   }
 }

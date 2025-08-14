@@ -30,6 +30,7 @@ import com.jiangdg.ausbc.callback.ICameraStateCallBack
 import com.jiangdg.ausbc.callback.ICaptureCallBack
 import com.jiangdg.ausbc.callback.IDeviceConnectCallBack
 import com.jiangdg.ausbc.callback.IEncodeDataCallBack
+import com.jiangdg.ausbc.callback.IPreviewDataCallBack
 import com.jiangdg.ausbc.camera.bean.CameraRequest
 import com.jiangdg.ausbc.render.env.RotateType
 import com.jiangdg.ausbc.utils.Logger
@@ -69,6 +70,9 @@ internal class UVCCameraView(
     private val configManager = CameraConfigManager()
     private val featuresManager = CameraFeaturesManager(mChannel)
     
+    // NV21 preview callback holder for register/unregister lifecycle
+    private var nv21PreviewCallback: IPreviewDataCallBack? = null
+    
     // Track streaming state
     private var isStreaming = false
     // Handler for periodic FPS updates
@@ -106,6 +110,15 @@ internal class UVCCameraView(
 
     companion object {
         private const val TAG = "CameraView"
+    }
+
+    private fun widthHeightForLog(camera: CameraUVC): String {
+        return try {
+            val req = camera.getCameraRequest()
+            "${'$'}{req?.previewWidth}x${'$'}{req?.previewHeight}"
+        } catch (_: Exception) {
+            "unknown"
+        }
     }
 
     override fun getView(): View {
@@ -165,15 +178,57 @@ internal class UVCCameraView(
             ICameraStateCallBack.State.OPENED -> {
                 stateManager.updateState(CameraStateManager.CameraState.OPENED)
                 setButtonCallback()
+                // Register NV21 preview callback if enabled
+                try {
+                    if (configManager.buildCameraRequest().isRawPreviewData) {
+                        val camera = getCurrentCamera()
+                        if (camera is CameraUVC) {
+                            // Ensure no duplicate
+                            nv21PreviewCallback?.let { camera.removePreviewDataCallBack(it) }
+                            nv21PreviewCallback = object : IPreviewDataCallBack {
+                                override fun onPreviewData(
+                                    data: ByteArray?,
+                                    width: Int,
+                                    height: Int,
+                                    format: IPreviewDataCallBack.DataFormat
+                                ) {
+                                    if (data == null) return
+                                    if (format == IPreviewDataCallBack.DataFormat.NV21) {
+                                        videoStreamHandler.onNv21Frame(
+                                            data,
+                                            width,
+                                            height,
+                                            System.currentTimeMillis()
+                                        )
+                                    }
+                                }
+                            }
+                            nv21PreviewCallback?.let { camera.addPreviewDataCallBack(it) }
+                            Logger.i(TAG, "NV21 preview callback registered: ${'$'}{widthHeightForLog(camera)}")
+                        }
+                    }
+                } catch (e: Exception) {
+                    Logger.e(TAG, "Failed to register NV21 preview callback", e)
+                }
             }
             ICameraStateCallBack.State.CLOSED -> {
                 stateManager.updateState(CameraStateManager.CameraState.CLOSED)
+                // Unregister NV21 callback if previously registered
+                try {
+                    val camera = getCurrentCamera()
+                    if (camera is CameraUVC) {
+                        nv21PreviewCallback?.let {
+                            camera.removePreviewDataCallBack(it)
+                            nv21PreviewCallback = null
+                        }
+                    }
+                } catch (_: Exception) {}
             }
             ICameraStateCallBack.State.ERROR -> {
                 stateManager.updateState(CameraStateManager.CameraState.ERROR, msg)
             }
         }
-        Logger.i(TAG, "------>CameraState: $code")
+        Logger.i(TAG, "------>CameraState: ${'$'}code")
     }
 
     fun registerMultiCamera() {
@@ -300,7 +355,8 @@ internal class UVCCameraView(
     override fun onPermissionResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         if (PermissionManager.isPermissionGranted(requestCode, permissions, grantResults)) {
             registerMultiCamera()
-        } else {
+        } 
+        else {
             callFlutter("Permission denied")
             stateManager.updateState(CameraStateManager.CameraState.ERROR, "Permission denied")
         }

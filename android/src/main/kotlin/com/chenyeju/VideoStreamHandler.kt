@@ -122,6 +122,59 @@ class VideoStreamHandler : EventChannel.StreamHandler {
             }
         }
     }
+
+    /**
+     * 处理NV21原始预览帧，并发送到Flutter
+     */
+    fun onNv21Frame(data: ByteArray, width: Int, height: Int, timestamp: Long) {
+        val sink = eventSink ?: return
+
+        // 帧率控制
+        val currentTime = System.currentTimeMillis()
+        if (frameRateLimit > 0) {
+            val minInterval = 1000 / frameRateLimit
+            if (currentTime - lastFrameTime < minInterval) {
+                return
+            }
+            lastFrameTime = currentTime
+        }
+
+        // 大小控制
+        if (frameSizeLimit > 0 && data.size > frameSizeLimit) {
+            return
+        }
+
+        // FPS计算窗口
+        frameTimes.add(currentTime)
+        while (frameTimes.isNotEmpty() && frameTimes.first() < currentTime - fpsCalculationWindow) {
+            frameTimes.removeAt(0)
+        }
+        val calculatedFps = if (frameTimes.size > 1) {
+            val framesInWindow = frameTimes.size
+            val windowDuration = (currentTime - frameTimes.first()) / 1000.0
+            (framesInWindow / windowDuration).toInt()
+        } else 0
+        if (calculatedFps > 0) {
+            currentFps = calculatedFps
+        }
+
+        mainHandler.post {
+            try {
+                val event = HashMap<String, Any>()
+                event["type"] = "NV21"
+                event["data"] = data
+                event["timestamp"] = timestamp
+                event["size"] = data.size
+                event["fps"] = currentFps
+                event["width"] = width
+                event["height"] = height
+
+                sink.success(event)
+            } catch (e: Exception) {
+                sink.error("VIDEO_STREAM_ERROR", "Error processing NV21 frame: ${e.message}", null)
+            }
+        }
+    }
     
     /**
      * 发送状态更新

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_uvc_camera_example/ml_kit_camera.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 import 'camera.dart';
 import 'features_demo.dart';
@@ -30,8 +32,67 @@ class MyApp extends StatelessWidget {
   }
 }
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  bool _permissionsGranted = true;
+
+  @override
+  void initState() {
+    super.initState();
+    // _requestPermissions();
+  }
+
+  Future<void> _requestPermissions() async {
+    Map<Permission, PermissionStatus> statuses = await [
+      Permission.camera,
+      Permission.storage,
+      Permission.microphone,
+    ].request();
+
+    bool allGranted = true;
+    statuses.forEach((permission, status) {
+      if (!status.isGranted) {
+        allGranted = false;
+      }
+    });
+
+    setState(() {
+      _permissionsGranted = allGranted;
+    });
+
+    if (!allGranted) {
+      // Tampilkan dialog jika izin tidak diberikan
+      if (mounted) {
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (BuildContext context) {
+            return AlertDialog(
+              title: const Text('Izin Diperlukan'),
+              content: const Text(
+                  'Aplikasi memerlukan izin kamera, penyimpanan dan mikrofon untuk berfungsi dengan baik. '
+                  'Mohon aktifkan izin melalui Pengaturan.'),
+              actions: [
+                TextButton(
+                  child: const Text('Buka Pengaturan'),
+                  onPressed: () {
+                    openAppSettings();
+                    Navigator.of(context).pop();
+                  },
+                ),
+              ],
+            );
+          },
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -40,81 +101,97 @@ class HomeScreen extends StatelessWidget {
         title: const Text('UVC Camera Demo'),
         backgroundColor: Theme.of(context).colorScheme.primaryContainer,
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            const Icon(Icons.camera_alt, size: 80, color: Colors.blue),
-            const SizedBox(height: 24),
-            const Text(
-              'UVC Camera Test Application',
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 12),
-            const Text(
-              'Control and test UVC camera devices',
-              style: TextStyle(fontSize: 16, color: Colors.grey),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 40),
-            _buildFeatureCard(
-              context,
-              title: 'Basic Camera Test',
-              description:
-                  'Test basic camera operations like preview, taking photos and recording videos',
-              icon: Icons.camera,
-              color: Colors.blue,
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const CameraTest()),
-                );
-              },
-            ),
-            const SizedBox(height: 20),
-            _buildFeatureCard(
-              context,
-              title: 'Camera Features Control',
-              description:
-                  'Adjust camera settings like brightness, zoom, focus, white balance, etc.',
-              icon: Icons.settings_suggest,
-              color: Colors.green,
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const FeaturesDemo()),
-                );
-              },
-            ),
-            const SizedBox(height: 20),
-            _buildFeatureCard(
-              context,
-              title: 'Video Streaming',
-              description:
-                  'Test advanced streaming features and frame processing',
-              icon: Icons.stream,
-              color: Colors.orange,
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const StreamsDemo()),
-                );
-              },
-            ),
-            const SizedBox(height: 40),
-            const Text(
-              'Important: Make sure your UVC camera is connected before testing',
-              style: TextStyle(
-                fontSize: 14,
-                fontStyle: FontStyle.italic,
-                color: Colors.red,
+      body: _permissionsGranted
+          ? SingleChildScrollView(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  const Icon(Icons.camera_alt, size: 80, color: Colors.blue),
+                  const SizedBox(height: 24),
+                  const Text(
+                    'UVC Camera Test Application',
+                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'Control and test UVC camera devices',
+                    style: TextStyle(fontSize: 16, color: Colors.grey),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 40),
+                  // _buildFeatureCard(
+                  //   context,
+                  //   title: 'Basic Camera Test',
+                  //   description:
+                  //       'Test basic camera operations like preview, taking photos and recording videos',
+                  //   icon: Icons.camera,
+                  //   color: Colors.blue,
+                  //   onTap: () {
+                  //     Navigator.push(
+                  //       context,
+                  //       MaterialPageRoute(builder: (context) => const CameraTest()),
+                  //     );
+                  //   },
+                  // ),
+                  // const SizedBox(height: 20),
+                  // _buildFeatureCard(
+                  //   context,
+                  //   title: 'Camera Features Control',
+                  //   description: 'Adjust camera settings like brightness, zoom, focus, white balance, etc.',
+                  //   icon: Icons.settings_suggest,
+                  //   color: Colors.green,
+                  //   onTap: () {
+                  //     Navigator.push(
+                  //       context,
+                  //       MaterialPageRoute(builder: (context) => const FeaturesDemo()),
+                  //     );
+                  //   },
+                  // ),
+                  const SizedBox(height: 20),
+                  _buildFeatureCard(
+                    context,
+                    title: 'Video Streaming',
+                    description: 'Test advanced streaming features and frame processing',
+                    icon: Icons.stream,
+                    color: Colors.orange,
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const StreamsDemo()),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 20),
+                  _buildFeatureCard(
+                    context,
+                    title: 'ML Kit Camera',
+                    description: 'Test advanced streaming features and frame processing',
+                    icon: Icons.stream,
+                    color: Colors.orange,
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const MLKitCamera()),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 40),
+                  const Text(
+                    'Important: Make sure your UVC camera is connected before testing',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontStyle: FontStyle.italic,
+                      color: Colors.red,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
               ),
-              textAlign: TextAlign.center,
+            )
+          : const Center(
+              child: CircularProgressIndicator(),
             ),
-          ],
-        ),
-      ),
     );
   }
 
